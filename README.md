@@ -1,6 +1,6 @@
 # 🤖 Robotic Arm Controller
 
-A modern web interface for controlling a 6-motor robotic arm via WebSocket. This is a React-based migration of the original single-file controller, with a dark theme UI and Docker support.
+A modern web interface for controlling a 6-motor robotic arm via WebSocket. This is a React-based migration of the original single-file controller, with a dark theme UI.
 
 ## Architecture
 
@@ -33,7 +33,7 @@ Each motor accepts angles **0°–180°**. Commands are throttled at 100ms inter
 - Pose Builder — set all 6 angles at once and send sequentially
 - WebSocket auto-reconnect
 - Connection status indicator
-- Docker-ready for VM deployment
+- PM2-ready for VM deployment
 
 ## Development
 
@@ -44,7 +44,7 @@ npm run dev
 
 Opens at `http://localhost:5173` (Vite dev server). Note: the WebSocket server is only available in production mode.
 
-## Production (without Docker)
+## Production
 
 ```bash
 npm run serve
@@ -52,22 +52,44 @@ npm run serve
 
 This builds the React app and starts the Node.js server at `http://localhost:8080`.
 
-## Deploy with Docker
+## Deploy to Azure VM
 
-### Option A: Docker Compose (recommended)
-
-```bash
-docker compose up -d --build
-```
-
-### Option B: Manual Docker
+### 1. SSH into your VM
 
 ```bash
-docker build -t robotic-arm .
-docker run -d -p 8080:8080 --name robotic-arm robotic-arm
+ssh <your-username>@<your-vm-ip>
 ```
 
-The app will be available at `http://<your-vm-ip>:8080`.
+### 2. Install Node.js and PM2
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pm2
+```
+
+### 3. Clone and start the app
+
+```bash
+git clone https://github.com/<your-username>/<your-repo>.git ~/robotic-arm
+cd ~/robotic-arm
+npm install
+pm2 start server/index.js --name robotic-arm
+pm2 save
+pm2 startup  # Run the command it outputs
+```
+
+### 4. Configure GitHub Actions
+
+Add these secrets in **Settings → Secrets and variables → Actions**:
+
+| Secret Name | Value |
+|-------------|-------|
+| `VM_HOST` | Your VM's public IP address |
+| `VM_USER` | Your VM username (e.g., `azureuser`) |
+| `VM_SSH_KEY` | SSH private key |
+
+Now every push to `main` will automatically deploy to your VM.
 
 ## ESP32 Protocol
 
@@ -103,6 +125,8 @@ The server broadcasts these to all connected browser clients automatically.
 ## Project Structure
 
 ```
+├── .github/workflows/
+│   └── deploy.yml             # CI/CD pipeline for Azure VM
 ├── src/
 │   ├── hooks/
 │   │   └── useWebSocket.js    # WebSocket connection hook
@@ -116,7 +140,5 @@ The server broadcasts these to all connected browser clients automatically.
 │   └── main.jsx               # React entry point
 ├── server/
 │   └── index.js               # Node.js + WebSocket server
-├── Dockerfile                 # Multi-stage Docker build
-├── docker-compose.yml         # Docker Compose config
 └── package.json
 ```

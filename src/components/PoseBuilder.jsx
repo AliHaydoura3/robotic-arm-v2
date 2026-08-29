@@ -22,11 +22,6 @@ export default function PoseBuilder({ onSendPose }) {
 
   return (
     <div className="pose-builder">
-      <div className="pose-builder__header">
-        <span className="pose-builder__icon">📋</span>
-        <h3>Pose Builder</h3>
-      </div>
-
       <div className="pose-builder__inputs">
         {angles.map((angle, i) => (
           <div key={i} className="pose-builder__field">

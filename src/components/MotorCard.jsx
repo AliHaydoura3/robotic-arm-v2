@@ -1,17 +1,15 @@
 import { useCallback } from 'react'
 
 const MOTOR_LABELS = {
-  1: { name: 'Shoulder', icon: '🦾' },
-  2: { name: 'Upper Arm', icon: '💪' },
-  3: { name: 'Elbow', icon: '🦿' },
-  4: { name: 'Wrist Pitch', icon: '🤲' },
-  5: { name: 'Wrist Roll', icon: '🔄' },
-  6: { name: 'Gripper', icon: '✊' },
+  1: 'Shoulder',
+  2: 'Upper Arm',
+  3: 'Elbow',
+  4: 'Wrist Pitch',
+  5: 'Wrist Roll',
+  6: 'Gripper',
 }
 
 export default function MotorCard({ motorId, angle, onAngleChange }) {
-  const info = MOTOR_LABELS[motorId]
-
   const handleChange = useCallback(
     (e) => {
       const value = parseInt(e.target.value)
@@ -23,10 +21,10 @@ export default function MotorCard({ motorId, angle, onAngleChange }) {
   return (
     <div className="motor-card">
       <div className="motor-card__header">
-        <span className="motor-card__icon">{info.icon}</span>
+        <div className="motor-card__id">M{motorId}</div>
         <div className="motor-card__title">
           <h3>Motor {motorId}</h3>
-          <span className="motor-card__label">{info.name}</span>
+          <span className="motor-card__label">{MOTOR_LABELS[motorId]}</span>
         </div>
       </div>
 

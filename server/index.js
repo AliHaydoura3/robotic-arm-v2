@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws'
 import { createServer } from 'http'
-import { readFileSync, existsSync, statSync } from 'fs'
+import { readFileSync, existsSync, statSync, writeFileSync, unlinkSync, readdirSync } from 'fs'
 import { join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
@@ -17,11 +17,19 @@ const log = {
   debug: (tag, msg) => console.debug(`[${timestamp()}] [DEBUG] [${tag}] ${msg}`),
 }
 
-// ─── Static file server ─────────────────────────────────────────────
+// ─── Paths ──────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const DIST_DIR = join(__dirname, '..', 'dist')
+const RECORDINGS_DIR = join(__dirname, 'recordings')
 
+// Ensure recordings directory exists
+if (!existsSync(RECORDINGS_DIR)) {
+  const { mkdirSync } = await import('fs')
+  mkdirSync(RECORDINGS_DIR, { recursive: true })
+}
+
+// ─── MIME types ─────────────────────────────────────────────────────
 const MIME_TYPES = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -35,6 +43,41 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (c) => chunks.push(c))
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()))
+    req.on('error', reject)
+  })
+}
+
+function json(res, status, data) {
+  const body = JSON.stringify(data)
+  res.writeHead(status, { 'Content-Type': 'application/json' })
+  res.end(body)
+}
+
+// ─── Recordings API ─────────────────────────────────────────────────
+function getRecordingPath(id) {
+  // Sanitize id — only allow alphanumeric, dash, underscore
+  const safe = id.replace(/[^a-zA-Z0-9_-]/g, '')
+  return join(RECORDINGS_DIR, `${safe}.json`)
+}
+
+function listRecordings() {
+  const files = readdirSync(RECORDINGS_DIR).filter(f => f.endsWith('.json'))
+  return files.map(f => {
+    try {
+      return JSON.parse(readFileSync(join(RECORDINGS_DIR, f), 'utf-8'))
+    } catch {
+      return null
+    }
+  }).filter(Boolean)
+}
+
+// ─── Static file server ─────────────────────────────────────────────
 function serveStatic(req, res) {
   let filePath = join(DIST_DIR, req.url === '/' ? 'index.html' : req.url)
 
@@ -56,7 +99,55 @@ function serveStatic(req, res) {
 }
 
 // ─── HTTP + WebSocket server ────────────────────────────────────────
-const server = createServer(serveStatic)
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`)
+  const pathname = url.pathname
+
+  // ── Recordings API ──
+  if (pathname === '/api/recordings' && req.method === 'GET') {
+    try {
+      const recs = listRecordings()
+      return json(res, 200, recs)
+    } catch (e) {
+      log.error('API', `List recordings failed: ${e.message}`)
+      return json(res, 500, { error: 'Failed to list recordings' })
+    }
+  }
+
+  if (pathname === '/api/recordings' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req))
+      const rec = {
+        id: body.id || Date.now().toString(),
+        name: body.name || 'Unnamed',
+        frames: body.frames || [],
+        createdAt: body.createdAt || new Date().toISOString(),
+      }
+      writeFileSync(getRecordingPath(rec.id), JSON.stringify(rec, null, 2))
+      log.info('API', `Saved recording "${rec.name}" [${rec.id}] — ${rec.frames.length} frames`)
+      return json(res, 201, rec)
+    } catch (e) {
+      log.error('API', `Save recording failed: ${e.message}`)
+      return json(res, 500, { error: 'Failed to save recording' })
+    }
+  }
+
+  const deleteMatch = pathname.match(/^\/api\/recordings\/(.+)$/)
+  if (deleteMatch && req.method === 'DELETE') {
+    const id = deleteMatch[1]
+    const filePath = getRecordingPath(id)
+    if (existsSync(filePath)) {
+      unlinkSync(filePath)
+      log.info('API', `Deleted recording [${id}]`)
+      return json(res, 200, { ok: true })
+    }
+    return json(res, 404, { error: 'Not found' })
+  }
+
+  // ── Static files ──
+  serveStatic(req, res)
+})
+
 const wss = new WebSocketServer({ server })
 
 let esp32 = null
@@ -146,6 +237,7 @@ const PORT = process.env.PORT || 8080
 
 server.listen(PORT, () => {
   log.info('SERVER', `Robotic Arm Controller listening on http://0.0.0.0:${PORT}`)
+  log.info('SERVER', `Recordings stored in ${RECORDINGS_DIR}`)
 })
 
 process.on('SIGTERM', () => {
