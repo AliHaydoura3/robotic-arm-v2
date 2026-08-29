@@ -19,7 +19,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            cd ~/robotic-arm
+            cd ~/robotic-arm-v2
             git pull origin main
             npm install
             pm2 restart robotic-arm || pm2 start server/index.js --name robotic-arm
