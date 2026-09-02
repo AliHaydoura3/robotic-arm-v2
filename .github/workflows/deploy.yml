@@ -26,4 +26,5 @@ jobs:
             node --version
             npm --version
             npm install
+            npm run build
             pm2 restart robotic-arm || pm2 start server/index.js --name robotic-arm

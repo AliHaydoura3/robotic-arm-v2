@@ -23,6 +23,15 @@ async function deleteRecording(id) {
   if (!res.ok) throw new Error('Failed to delete recording')
 }
 
+const SPEED_OPTIONS = [
+  { label: 'x0.5', value: 0.5 },
+  { label: 'x1', value: 1 },
+  { label: 'x1.5', value: 1.5 },
+  { label: 'x2', value: 2 },
+]
+
+const BASE_FRAME_INTERVAL = 200 // ms per frame at x1 speed
+
 export default function RecordingControls({ angles, onSendPose }) {
   const [recordings, setRecordings] = useState([])
   const [isRecording, setIsRecording] = useState(false)
@@ -33,6 +42,7 @@ export default function RecordingControls({ angles, onSendPose }) {
   const [recordingName, setRecordingName] = useState('')
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [selectedRec, setSelectedRec] = useState(null)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
 
   const framesRef = useRef([])
   const intervalRef = useRef(null)
@@ -40,6 +50,11 @@ export default function RecordingControls({ angles, onSendPose }) {
   const playIndexRef = useRef(0)
   const anglesRef = useRef(angles)
   const recordingsRef = useRef(recordings)
+  const playbackSpeedRef = useRef(playbackSpeed)
+
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed
+  }, [playbackSpeed])
 
   // Keep refs in sync
   useEffect(() => {
@@ -136,7 +151,7 @@ export default function RecordingControls({ angles, onSendPose }) {
             setPlayingProgress('')
           }, 300)
         }
-      }, i * 200)
+      }, i * BASE_FRAME_INTERVAL / playbackSpeedRef.current)
       playTimeoutsRef.current.push(timeout)
     })
   }, [selectedRec, onSendPose])
@@ -234,6 +249,23 @@ export default function RecordingControls({ angles, onSendPose }) {
               Playing: {playingName} ({playingProgress})
             </span>
           )}
+        </div>
+      )}
+
+      {selectedRec && !isRecording && (
+        <div className="recording__speed">
+          <span className="recording__speed-label">Speed:</span>
+          <div className="recording__speed-options">
+            {SPEED_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`recording__speed-btn ${playbackSpeed === opt.value ? 'recording__speed-btn--active' : ''}`}
+                onClick={() => setPlaybackSpeed(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -65,6 +65,12 @@ function App() {
     [sendPose]
   )
 
+  const handleResetHome = useCallback(() => {
+    setAngles(DEFAULT_ANGLES)
+    sendPose(DEFAULT_ANGLES)
+    setLastCommand(`Reset to home [${DEFAULT_ANGLES.join(', ')}]`)
+  }, [sendPose])
+
   const handleLogout = () => {
     sessionStorage.removeItem('arm_auth')
     setLoggedIn(false)
@@ -82,9 +88,14 @@ function App() {
             <h1>Robotic Arm Controller</h1>
             <p>Professional 6-Motor Servo Control System</p>
           </div>
-          <button className="btn btn--secondary btn--sm" onClick={handleLogout}>
-            Logout
-          </button>
+          <div className="app-header__actions">
+            <button className="btn btn--primary btn--sm" onClick={handleResetHome}>
+              🏠 Reset Home
+            </button>
+            <button className="btn btn--secondary btn--sm" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
